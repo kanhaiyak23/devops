@@ -21,21 +21,21 @@ jobs:
           node-version: '18'
       
       - name: Install dependencies
-        working-directory: ./shopsmart/client
+        working-directory: ./client
         run: npm install
       
       - name: Run linter
-        working-directory: ./shopsmart/client
+        working-directory: ./client
         run: npm run lint
         continue-on-error: true
       
       - name: Run tests
-        working-directory: ./shopsmart/client
+        working-directory: ./client
         run: npm test -- --run
         continue-on-error: true
       
       - name: Start dev server (smoke test)
-        working-directory: ./shopsmart/client
+        working-directory: ./client
         run: |
           npm run dev &
           DEV_PID=$!
@@ -45,14 +45,14 @@ jobs:
           echo "Dev server smoke test completed"
       
       - name: Build frontend
-        working-directory: ./shopsmart/client
+        working-directory: ./client
         run: npm run build
       
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
-          path: shopsmart/client/dist
+          path: client/dist
           retention-days: 7
 
   test-and-build-backend:
@@ -69,21 +69,21 @@ jobs:
           node-version: '18'
       
       - name: Install dependencies
-        working-directory: ./shopsmart/server
+        working-directory: ./server
         run: npm install
       
       - name: Run linter
-        working-directory: ./shopsmart/server
+        working-directory: ./server
         run: npm run lint
         continue-on-error: true
       
       - name: Run tests
-        working-directory: ./shopsmart/server
+        working-directory: ./server
         run: npm test
         continue-on-error: true
       
       - name: Start server (smoke test)
-        working-directory: ./shopsmart/server
+        working-directory: ./server
         run: |
           npm start &
           SERVER_PID=$!
@@ -93,7 +93,7 @@ jobs:
           echo "Server smoke test completed"
       
       - name: Verify server files
-        working-directory: ./shopsmart/server
+        working-directory: ./server
         run: |
           echo "✅ Server dependencies installed successfully"
           echo "Node version: $(node --version)"
@@ -115,15 +115,15 @@ jobs:
           node-version: '18'
       
       - name: Install backend dependencies
-        working-directory: ./shopsmart/server
+        working-directory: ./server
         run: npm install
       
       - name: Install frontend dependencies
-        working-directory: ./shopsmart/client
+        working-directory: ./client
         run: npm install
       
       - name: Start backend server
-        working-directory: ./shopsmart/server
+        working-directory: ./server
         run: |
           npm start &
           SERVER_PID=$!
@@ -132,7 +132,7 @@ jobs:
           sleep 5
       
       - name: Start frontend dev server
-        working-directory: ./shopsmart/client
+        working-directory: ./client
         run: |
           npm run dev &
           CLIENT_PID=$!
