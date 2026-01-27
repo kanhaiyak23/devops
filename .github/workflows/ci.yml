@@ -8,7 +8,7 @@ on:
 
 jobs:
   test-and-build-frontend:
-    name: Frontend - Test & Build 
+    name: Frontend - Test & Build
     runs-on: ubuntu-latest
     
     steps:
@@ -19,8 +19,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: shopsmart/client/package-lock.json
       
       - name: Install dependencies
         working-directory: ./shopsmart/client
@@ -69,8 +67,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: shopsmart/server/package-lock.json
       
       - name: Install dependencies
         working-directory: ./shopsmart/server
