@@ -32,7 +32,6 @@ jobs:
       - name: Run tests
         working-directory: ./client
         run: npm test -- --run
-        continue-on-error: true
       
       - name: Start dev server (smoke test)
         working-directory: ./client
@@ -80,7 +79,6 @@ jobs:
       - name: Run tests
         working-directory: ./server
         run: npm test
-        continue-on-error: true
       
       - name: Start server (smoke test)
         working-directory: ./server
