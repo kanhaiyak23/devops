@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AWS EC2 Deployment Dem</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      background: #f4f6f9;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    header {
+      background: #111827;
+      color: white;
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 22px;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      margin-left: 20px;
+      font-size: 14px;
+    }
+
+    .hero {
+      height: 60vh;
+      background: linear-gradient(to right, #4f46e5, #06b6d4);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .hero h2 {
+      font-size: 40px;
+      margin-bottom: 15px;
+    }
+
+    .hero p {
+      max-width: 600px;
+      font-size: 18px;
+      margin-bottom: 25px;
+    }
+
+    .hero button {
+      padding: 12px 24px;
+      border: none;
+      background: white;
+      color: #4f46e5;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .hero button:hover {
+      background: #e5e7eb;
+    }
+
+    .container {
+      padding: 60px 40px;
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    .images {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      transition: 0.3s;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+    }
+
+    .card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+    }
+
+    .card .content {
+      padding: 15px;
+    }
+
+    .card h3 {
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+
+    footer {
+      background: #111827;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      margin-top: 60px;
+      font-size: 14px;
+    }
+
+    @media (max-width: 768px) {
+      .hero h2 {
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <h1>EC2 Static Site</h1>
+  <nav>
+    <a href="#">Home</a>
+    <a href="#">Gallery</a>
+    <a href="#">Contact</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <h2>Successfully Deployed to AWS EC2 🚀</h2>
+  <p>This static HTML file is deployed automatically using GitHub Actions and served via Nginx on Ubuntu.</p>
+  <button onclick="alert('Deployment is working!')">Verify Deployment</button>
+</section>
+
+<section class="container">
+  <h2 style="text-align:center; margin-bottom:40px;">Image Showcase</h2>
+
+  <div class="images">
+    <div class="card">
+      <img src="https://picsum.photos/500/300?1" alt="Random Image">
+      <div class="content">
+        <h3>Cloud Infrastructure</h3>
+        <p>Scalable deployment on AWS EC2.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="https://picsum.photos/500/300?2" alt="Random Image">
+      <div class="content">
+        <h3>CI/CD Pipeline</h3>
+        <p>Automated deployment using GitHub Actions.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="https://picsum.photos/500/300?3" alt="Random Image">
+      <div class="content">
+        <h3>Nginx Server</h3>
+        <p>High-performance web server configuration.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  © 2026 | Hosted on AWS EC2 | Powered by Nginx
+</footer>
+
+</body>
+</html>
