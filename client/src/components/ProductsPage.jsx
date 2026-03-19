@@ -1,9 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ProductCard from "./ProductCard";
-import products from "../data/products";
+import staticProducts from "../data/products";
 
 function ProductsPage() {
+  const [products, setProducts] = useState(staticProducts);
   const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    fetch("/api/products")
+      .then((res) => {
+        if (!res.ok) throw new Error("API unavailable");
+        return res.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setProducts(data);
+        }
+      })
+      .catch(() => {
+        // Fallback: keep using static data
+      });
+  }, []);
 
   const filteredProducts = products.filter(
     (product) =>
