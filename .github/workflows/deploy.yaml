@@ -1,19 +1,19 @@
 name: Deploy to Docker Hub
 
 on:
-  push:
-    branches: [ "automat" ]
-  workflow_dispatch:
+  push:
+    branches: ["automat"]
+  workflow_dispatch:
 
 jobs:
-  deploy:
+  deploy:
+    runs-on: ubuntu-latest
 
-    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
+      - run: docker build . -t kanhaiya45545/node20
 
+      - run: echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
 
-    steps:
-    - uses: actions/checkout@v4
-    - run: docker build . -t kanhaiya45545/node20
-    - run: echo "${{secrets.DOCKERHUB_PASSWORD}}" | docker login -u ${{secrets.DOCKERHUB_USERNAME}} --password-stdin
-    - run: docker push ${{secrets.DOCKERHUB_USERNAME}}/node20:latest
+      - run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/node20:latest
