@@ -1,11 +1,16 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Serve built frontend in production (Docker)
+const clientDist = path.join(__dirname, '../../client/dist');
+app.use(express.static(clientDist));
 
 // Product data
 const products = [
@@ -46,9 +51,12 @@ app.get('/api/products/search', (req, res) => {
   res.json(filtered);
 });
 
-// Root Route
-app.get('/', (req, res) => {
-  res.send('ShopSmart Backend Service');
-});
+// Catch-all: serve React app for client-side routing (must be AFTER API routes)
+// app.get('*', (req, res) => {
+//   res.sendFile(path.join(clientDist, 'index.html'));
+// });
+
+
+
 
 module.exports = app;
