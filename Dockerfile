@@ -1,20 +1,23 @@
-# Use an official Node.js runtime as a base image (Alpine is minimal and recommended)
-FROM node:20-alpine
-
-# Set the working directory in the container
-WORKDIR /app
-
-# Copy package.json and package-lock.json to leverage Docker cache
-COPY package*.json ./
-
-# Install application dependencies
+# Stage 1: Build the React frontend
+FROM node:20-alpine AS build-client
+WORKDIR /app/client
+COPY client/package*.json ./
 RUN npm install
+COPY client/ ./
+RUN npm run build -- --base=/
 
-# Copy the rest of the application source code
-COPY . .
+# Stage 2: Build the Node.js backend
+FROM node:20-alpine
+WORKDIR /app/server
+COPY server/package*.json ./
+RUN npm install --production
+COPY server/ ./
 
-# Expose the port the app runs on
-EXPOSE 8080
+# Copy built frontend from Stage 1 into the correct path expected by Express
+COPY --from=build-client /app/client/dist /app/client/dist
 
-# Define the command to run the application when the container starts
-CMD ["node", "index.js"]
+# Expose the correct environment port
+EXPOSE 5001
+
+# Start the application
+CMD ["node", "src/index.js"]
