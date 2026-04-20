@@ -13,17 +13,16 @@ provider "aws" {
   region = var.aws_region
 }
 
-# ── ECR Repository (pre-created by CI CLI step — just reference it) ────────
-data "aws_ecr_repository" "app_repo" {
-  name = var.app_name
-}
+# ── NOTE: ECR repo is created/ensured by the CI pipeline (AWS CLI step).
+# ── We reference it purely via var.ecr_registry_url + var.app_name.
+# ── No data source = no AWS lookup during plan/apply = truly idempotent.
 
-# ── LabRole (AWS Academy pre-existing role — cannot create IAM roles) ───────
+# ── LabRole — AWS Academy pre-existing role (cannot create IAM roles) ────────
 data "aws_iam_role" "lab_role" {
   name = "LabRole"
 }
 
-# ── ECS Cluster ─────────────────────────────────────────────────────────────
+# ── ECS Cluster ──────────────────────────────────────────────────────────────
 resource "aws_ecs_cluster" "app_cluster" {
   name = "${var.app_name}-cluster"
 
