@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "app_name" {
   description = "Application name — must match APP_NAME in the workflow (set via TF_VAR_app_name)"
   type        = string
-  default     = "devops-static-app"
+  default     = "devops-static12345678-app"
 }
 
 variable "ecr_registry_url" {
