@@ -9,15 +9,18 @@ name: Deploy to AWS ECS
 on:
   push:
     branches:
-      - main   # Triggers on every push to main branch
+      - automat  # Triggers on every push to automat branch
 
 env:
   AWS_REGION:    us-east-1
-  APP_NAME:      devops-static-app
+  APP_NAME:      devops-static12345678-app   # ← single source of truth for the app name
   TF_VERSION:    1.9.8
-  TF_IN_AUTOMATION: true
-  TF_VAR_subnet_id: ${{ secrets.AWS_SUBNET_ID }}
-  TF_VAR_security_group_id: ${{ secrets.AWS_SECURITY_GROUP_ID }}
+  TF_IN_AUTOMATION: "true"
+  # Pass all required Terraform variables from the workflow
+  TF_VAR_aws_region:            us-east-1
+  TF_VAR_app_name:              devops-static12345678-app   # mirrors APP_NAME above
+  TF_VAR_subnet_id:             ${{ secrets.AWS_SUBNET_ID }}
+  TF_VAR_security_group_id:     ${{ secrets.AWS_SECURITY_GROUP_ID }}
 
 jobs:
   deploy:
@@ -38,26 +41,31 @@ jobs:
           aws-session-token:     ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region:            ${{ env.AWS_REGION }}
 
-      # ── Step 3: Validate required deployment secrets ─────────
+      # ── Step 3: Validate required secrets exist ────────────
       - name: Validate Required Secrets
         run: |
-          test -n "${{ env.TF_VAR_subnet_id }}" || (echo "❌ Missing secret: AWS_SUBNET_ID" && exit 1)
-          test -n "${{ env.TF_VAR_security_group_id }}" || (echo "❌ Missing secret: AWS_SECURITY_GROUP_ID" && exit 1)
+          test -n "${{ secrets.AWS_ACCESS_KEY_ID }}"     || (echo "❌ Missing: AWS_ACCESS_KEY_ID"     && exit 1)
+          test -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" || (echo "❌ Missing: AWS_SECRET_ACCESS_KEY" && exit 1)
+          test -n "${{ secrets.AWS_SESSION_TOKEN }}"     || (echo "❌ Missing: AWS_SESSION_TOKEN"     && exit 1)
+          test -n "${{ secrets.AWS_SUBNET_ID }}"         || (echo "❌ Missing: AWS_SUBNET_ID"         && exit 1)
+          test -n "${{ secrets.AWS_SECURITY_GROUP_ID }}" || (echo "❌ Missing: AWS_SECURITY_GROUP_ID" && exit 1)
+          echo "✅ All required secrets present"
 
-      # ── Step 4: Login to Amazon ECR ───────────────────────
+      # ── Step 4: Login to Amazon ECR & capture registry URL ─
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ── Step 5: Ensure ECR repository exists ───────────────
+      # ── Step 5: Ensure ECR repository exists (CLI — idempotent) ──
       - name: Ensure ECR Repository Exists
         run: |
           aws ecr describe-repositories \
             --repository-names "${{ env.APP_NAME }}" \
-            --region "${{ env.AWS_REGION }}" >/dev/null 2>&1 || \
-          aws ecr create-repository \
+            --region "${{ env.AWS_REGION }}" >/dev/null 2>&1 \
+          || aws ecr create-repository \
             --repository-name "${{ env.APP_NAME }}" \
             --region "${{ env.AWS_REGION }}"
+          echo "✅ ECR repository ready: ${{ env.APP_NAME }}"
 
       # ── Step 6: Build, Tag & Push Docker Image ─────────────
       - name: Build, Tag & Push Docker Image to ECR
@@ -70,60 +78,67 @@ jobs:
           LATEST_URI=$ECR_REGISTRY/${{ env.APP_NAME }}:latest
 
           echo "Building Docker image..."
-          docker build -t $IMAGE_URI -t $LATEST_URI .
+          docker build -t "$IMAGE_URI" -t "$LATEST_URI" .
 
           echo "Pushing image to ECR..."
-          docker push $IMAGE_URI
-          docker push $LATEST_URI
+          docker push "$IMAGE_URI"
+          docker push "$LATEST_URI"
 
+          # Export for downstream steps
           echo "image=$IMAGE_URI" >> $GITHUB_OUTPUT
+          echo "registry=$ECR_REGISTRY" >> $GITHUB_OUTPUT
           echo "✅ Docker image pushed: $IMAGE_URI"
 
-      # ── Step 7: Setup Terraform ───────────────────────────
+      # ── Step 7: Setup Terraform ────────────────────────────
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      # ── Step 8: Terraform Version Check ──────────────────
+      # ── Step 8: Terraform Version Check ───────────────────
       - name: Terraform Version Check
         run: terraform version
 
-      # ── Step 9: Terraform Fmt Check ───────────────────────
+      # ── Step 9: Terraform Format Check ────────────────────
       - name: Terraform Fmt Check
         working-directory: ./terraform
         run: |
           terraform fmt -check -recursive
           echo "✅ Terraform formatting is valid"
 
-      # ── Step 10: Terraform Init ───────────────────────────
+      # ── Step 10: Terraform Init ────────────────────────────
       - name: Terraform Init
         working-directory: ./terraform
         run: |
-          terraform init -upgrade -input=false || \
-            (rm -rf .terraform .terraform.lock.hcl && terraform init -upgrade -input=false)
+          terraform init -upgrade -input=false \
+          || (rm -rf .terraform .terraform.lock.hcl && terraform init -upgrade -input=false)
           echo "✅ Terraform initialized"
 
-      # ── Step 11: Import existing AWS resources into Terraform state ─────
+      # ── Step 11: Import existing resources (idempotent) ────
+      # Importing prevents "already exists" errors on repeat runs.
+      # Uses || true so a first-run (nothing to import) never fails.
       - name: Terraform Import Existing Resources
         working-directory: ./terraform
         env:
-          TF_VAR_image_uri: ${{ steps.build-image.outputs.image }}
+          TF_VAR_image_uri:        ${{ steps.build-image.outputs.image }}
+          TF_VAR_ecr_registry_url: ${{ steps.build-image.outputs.registry }}
         run: |
-          echo "Importing ECS cluster if it already exists..."
+          echo "→ Importing ECS cluster..."
           terraform import -input=false \
-            aws_ecs_cluster.app_cluster "${{ env.APP_NAME }}-cluster" || true
+            aws_ecs_cluster.app_cluster \
+            "${{ env.APP_NAME }}-cluster" || true
 
-          echo "Importing CloudWatch log group if it already exists..."
+          echo "→ Importing CloudWatch log group..."
           terraform import -input=false \
-            aws_cloudwatch_log_group.app_logs "/ecs/${{ env.APP_NAME }}" || true
+            aws_cloudwatch_log_group.app_logs \
+            "/ecs/${{ env.APP_NAME }}" || true
 
-          echo "Importing ECS service if it already exists..."
+          echo "→ Importing ECS service..."
           terraform import -input=false \
             aws_ecs_service.app_service \
             "${{ env.APP_NAME }}-cluster/${{ env.APP_NAME }}-service" || true
 
-          echo "✅ Existing resources imported if present"
+          echo "✅ Import step complete"
 
       # ── Step 12: Terraform Validate ───────────────────────
       - name: Terraform Validate
@@ -132,23 +147,27 @@ jobs:
           terraform validate
           echo "✅ Terraform configuration is valid"
 
-      # ── Step 13: Terraform Plan ───────────────────────────
+      # ── Step 13: Terraform Plan ────────────────────────────
       - name: Terraform Plan
         working-directory: ./terraform
         env:
-          TF_VAR_image_uri: ${{ steps.build-image.outputs.image }}
+          TF_VAR_image_uri:        ${{ steps.build-image.outputs.image }}
+          TF_VAR_ecr_registry_url: ${{ steps.build-image.outputs.registry }}
         run: |
           terraform plan -input=false -out=tfplan
           echo "✅ Terraform plan complete"
 
-      # ── Step 14: Terraform Apply ──────────────────────────
+      # ── Step 14: Terraform Apply ───────────────────────────
       - name: Terraform Apply
         working-directory: ./terraform
+        env:
+          TF_VAR_image_uri:        ${{ steps.build-image.outputs.image }}
+          TF_VAR_ecr_registry_url: ${{ steps.build-image.outputs.registry }}
         run: |
           terraform apply -input=false -auto-approve tfplan
           echo "✅ Infrastructure provisioned successfully"
 
-      # ── Step 15: Print Deployment Summary ─────────────────
+      # ── Step 15: Deployment Summary ───────────────────────
       - name: Deployment Summary
         run: |
           echo "============================================"
@@ -160,6 +179,6 @@ jobs:
           echo "  Commit    : ${{ github.sha }}"
           echo "============================================"
           echo ""
-          echo "👉 Go to AWS Console → ECS → Clusters"
-          echo "   → devops-static-app-cluster → Tasks"
+          echo "👉 AWS Console → ECS → Clusters"
+          echo "   → ${{ env.APP_NAME }}-cluster → Tasks"
           echo "   → Copy Public IP → Open in browser :80"

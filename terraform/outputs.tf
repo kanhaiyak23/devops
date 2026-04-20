@@ -1,6 +1,6 @@
 output "ecr_repository_url" {
-  description = "ECR repository URL"
-  value       = data.aws_ecr_repository.app_repo.repository_url
+  description = "ECR repository URL (computed from registry + app_name)"
+  value       = "${var.ecr_registry_url}/${var.app_name}"
 }
 
 output "ecs_cluster_name" {
