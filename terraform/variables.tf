@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "app_name" {
   description = "Application name used for all resource names"
   type        = string
-  default     = "devops-static-app"
+  default     = "devops-static12345678-app"
 }
 
 variable "image_uri" {

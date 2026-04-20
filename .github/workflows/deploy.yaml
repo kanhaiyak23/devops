@@ -104,13 +104,26 @@ jobs:
             (rm -rf .terraform .terraform.lock.hcl && terraform init -upgrade -input=false)
           echo "✅ Terraform initialized"
 
-      # ── Step 11: Terraform Import Existing ECR ────────────
-      - name: Terraform Import Existing ECR
+      # ── Step 11: Import existing AWS resources into Terraform state ─────
+      - name: Terraform Import Existing Resources
         working-directory: ./terraform
+        env:
+          TF_VAR_image_uri: ${{ steps.build-image.outputs.image }}
         run: |
+          echo "Importing ECS cluster if it already exists..."
           terraform import -input=false \
-            aws_ecr_repository.app_repo "${{ env.APP_NAME }}" || true
-          echo "✅ Existing ECR repository imported if present"
+            aws_ecs_cluster.app_cluster "${{ env.APP_NAME }}-cluster" || true
+
+          echo "Importing CloudWatch log group if it already exists..."
+          terraform import -input=false \
+            aws_cloudwatch_log_group.app_logs "/ecs/${{ env.APP_NAME }}" || true
+
+          echo "Importing ECS service if it already exists..."
+          terraform import -input=false \
+            aws_ecs_service.app_service \
+            "${{ env.APP_NAME }}-cluster/${{ env.APP_NAME }}-service" || true
+
+          echo "✅ Existing resources imported if present"
 
       # ── Step 12: Terraform Validate ───────────────────────
       - name: Terraform Validate
