@@ -1,6 +1,6 @@
 output "ecr_repository_url" {
   description = "ECR repository URL"
-  value       = aws_ecr_repository.app_repo.repository_url
+  value       = data.aws_ecr_repository.app_repo.repository_url
 }
 
 output "ecs_cluster_name" {
@@ -16,4 +16,9 @@ output "ecs_service_name" {
 output "task_definition_arn" {
   description = "ECS task definition ARN"
   value       = aws_ecs_task_definition.app_task.arn
+}
+
+output "lab_role_arn" {
+  description = "AWS Academy LabRole ARN used as ECS task execution role"
+  value       = data.aws_iam_role.lab_role.arn
 }

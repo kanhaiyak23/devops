@@ -13,23 +13,17 @@ provider "aws" {
   region = var.aws_region
 }
 
-# ── ECR Repository ─────────────────────────────────────────
-resource "aws_ecr_repository" "app_repo" {
-  name                 = var.app_name
-  image_tag_mutability = "MUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = {
-    Name        = var.app_name
-    Environment = "production"
-    ManagedBy   = "terraform"
-  }
+# ── ECR Repository (pre-created by CI CLI step — just reference it) ────────
+data "aws_ecr_repository" "app_repo" {
+  name = var.app_name
 }
 
-# ── ECS Cluster ────────────────────────────────────────────
+# ── LabRole (AWS Academy pre-existing role — cannot create IAM roles) ───────
+data "aws_iam_role" "lab_role" {
+  name = "LabRole"
+}
+
+# ── ECS Cluster ─────────────────────────────────────────────────────────────
 resource "aws_ecs_cluster" "app_cluster" {
   name = "${var.app_name}-cluster"
 
@@ -44,7 +38,7 @@ resource "aws_ecs_cluster" "app_cluster" {
   }
 }
 
-# ── CloudWatch Log Group ───────────────────────────────────
+# ── CloudWatch Log Group ─────────────────────────────────────────────────────
 resource "aws_cloudwatch_log_group" "app_logs" {
   name              = "/ecs/${var.app_name}"
   retention_in_days = 7
@@ -55,42 +49,14 @@ resource "aws_cloudwatch_log_group" "app_logs" {
   }
 }
 
-# ── IAM Role for ECS Task Execution ───────────────────────
-resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "${var.app_name}-ecs-exec-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ecs-tasks.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name      = "${var.app_name}-ecs-exec-role"
-    ManagedBy = "terraform"
-  }
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_execution_policy" {
-  role       = aws_iam_role.ecs_task_execution_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-# ── ECS Task Definition ────────────────────────────────────
+# ── ECS Task Definition ──────────────────────────────────────────────────────
 resource "aws_ecs_task_definition" "app_task" {
   family                   = var.app_name
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "256"
   memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  execution_role_arn       = data.aws_iam_role.lab_role.arn
 
   container_definitions = jsonencode([
     {
@@ -121,7 +87,7 @@ resource "aws_ecs_task_definition" "app_task" {
   }
 }
 
-# ── ECS Service ────────────────────────────────────────────
+# ── ECS Service ──────────────────────────────────────────────────────────────
 resource "aws_ecs_service" "app_service" {
   name            = "${var.app_name}-service"
   cluster         = aws_ecs_cluster.app_cluster.id
@@ -135,7 +101,6 @@ resource "aws_ecs_service" "app_service" {
     assign_public_ip = true
   }
 
-  # Allow deployment to update the service even on first run
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
 
@@ -144,7 +109,6 @@ resource "aws_ecs_service" "app_service" {
     ManagedBy = "terraform"
   }
 
-  # Ignore image_uri changes managed by CI/CD
   lifecycle {
     ignore_changes = [task_definition]
   }
