@@ -3,7 +3,7 @@ function HeroSection() {
     <section className="hero" id="home" data-testid="hero-section">
       <div className="hero-overlay"></div>
       <div className="hero-content">
-        <h1 className="hero-headline">Elevate Your Style</h1>
+        <h1 className="hero-headline">Elevate You</h1>
         <p className="hero-tagline">
           Discover curated collections that blend timeless elegance with modern
           trends.
