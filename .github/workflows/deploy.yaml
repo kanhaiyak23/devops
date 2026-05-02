@@ -186,7 +186,37 @@ jobs:
             --output text)
           echo "Running tasks: $RUNNING"
 
-      # ── Step 16: Deployment Summary ───────────────────────
+      # ── Step 16: Get Public IP & Print URL ────────────────
+      - name: Get App Public IP
+        id: get-ip
+        run: |
+          echo "Fetching public IP of the running ECS task..."
+
+          TASK_ARN=$(aws ecs list-tasks \
+            --cluster "${{ env.APP_NAME }}-cluster" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "taskArns[0]" \
+            --output text)
+          echo "Task ARN: $TASK_ARN"
+
+          ENI_ID=$(aws ecs describe-tasks \
+            --cluster "${{ env.APP_NAME }}-cluster" \
+            --tasks "$TASK_ARN" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "tasks[0].attachments[0].details[?name=='networkInterfaceId'].value" \
+            --output text)
+          echo "ENI ID: $ENI_ID"
+
+          PUBLIC_IP=$(aws ec2 describe-network-interfaces \
+            --network-interface-ids "$ENI_ID" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "NetworkInterfaces[0].Association.PublicIp" \
+            --output text)
+
+          echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
+          echo "✅ Public IP: $PUBLIC_IP"
+
+      # ── Step 17: Deployment Summary ───────────────────────
       - name: Deployment Summary
         run: |
           echo "============================================"
@@ -198,6 +228,8 @@ jobs:
           echo "  Commit    : ${{ github.sha }}"
           echo "============================================"
           echo ""
-          echo "👉 AWS Console → ECS → Clusters"
-          echo "   → ${{ env.APP_NAME }}-cluster → Tasks"
-          echo "   → Copy Public IP → Open in browser :80"
+          echo "🌐 Visit your app at:"
+          echo "   http://${{ steps.get-ip.outputs.public_ip }}:5001"
+          echo ""
+          echo "👉 Or: AWS Console → ECS → Clusters"
+          echo "   → ${{ env.APP_NAME }}-cluster → Tasks → Public IP"
