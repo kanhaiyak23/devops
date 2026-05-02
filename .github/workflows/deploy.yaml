@@ -123,6 +123,31 @@ jobs:
           TF_VAR_image_uri:        ${{ steps.build-image.outputs.image }}
           TF_VAR_ecr_registry_url: ${{ steps.build-image.outputs.registry }}
         run: |
+          # Fetch AWS account ID needed for S3 bucket name
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          S3_BUCKET="${{ env.APP_NAME }}-${ACCOUNT_ID}"
+          echo "S3 bucket name: $S3_BUCKET"
+
+          echo "→ Importing S3 bucket..."
+          terraform import -input=false \
+            aws_s3_bucket.app_bucket \
+            "$S3_BUCKET" || true
+
+          echo "→ Importing S3 versioning..."
+          terraform import -input=false \
+            aws_s3_bucket_versioning.app_bucket_versioning \
+            "$S3_BUCKET" || true
+
+          echo "→ Importing S3 encryption config..."
+          terraform import -input=false \
+            aws_s3_bucket_server_side_encryption_configuration.app_bucket_encryption \
+            "$S3_BUCKET" || true
+
+          echo "→ Importing S3 public access block..."
+          terraform import -input=false \
+            aws_s3_bucket_public_access_block.app_bucket_public_access \
+            "$S3_BUCKET" || true
+
           echo "→ Importing ECS cluster..."
           terraform import -input=false \
             aws_ecs_cluster.app_cluster \
@@ -139,6 +164,7 @@ jobs:
             "${{ env.APP_NAME }}-cluster/${{ env.APP_NAME }}-service" || true
 
           echo "✅ Import step complete"
+
 
       # ── Step 12: Terraform Validate ───────────────────────
       - name: Terraform Validate
