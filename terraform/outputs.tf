@@ -1,3 +1,8 @@
+output "s3_bucket_name" {
+  description = "S3 bucket name (unique: app_name + account_id)"
+  value       = aws_s3_bucket.app_bucket.bucket
+}
+
 output "ecr_repository_url" {
   description = "ECR repository URL (computed from registry + app_name)"
   value       = "${var.ecr_registry_url}/${var.app_name}"

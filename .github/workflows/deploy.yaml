@@ -167,7 +167,26 @@ jobs:
           terraform apply -input=false -auto-approve tfplan
           echo "✅ Infrastructure provisioned successfully"
 
-      # ── Step 15: Deployment Summary ───────────────────────
+      # ── Step 15: Verify ECS Service is Running ─────────────
+      - name: Verify ECS Service is Stable
+        run: |
+          echo "Waiting for ECS service to reach steady state..."
+          aws ecs wait services-stable \
+            --cluster "${{ env.APP_NAME }}-cluster" \
+            --services "${{ env.APP_NAME }}-service" \
+            --region "${{ env.AWS_REGION }}"
+          echo "✅ ECS service is running and stable"
+
+          # Show running task count
+          RUNNING=$(aws ecs describe-services \
+            --cluster "${{ env.APP_NAME }}-cluster" \
+            --services "${{ env.APP_NAME }}-service" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "services[0].runningCount" \
+            --output text)
+          echo "Running tasks: $RUNNING"
+
+      # ── Step 16: Deployment Summary ───────────────────────
       - name: Deployment Summary
         run: |
           echo "============================================"
