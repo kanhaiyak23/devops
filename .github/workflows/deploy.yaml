@@ -13,12 +13,12 @@ on:
 
 env:
   AWS_REGION:    us-east-1
-  APP_NAME:      devops-static12345678-app   # ← single source of truth for the app name
+  APP_NAME:      devops-static123456789-app   # ← single source of truth for the app name
   TF_VERSION:    1.9.8
   TF_IN_AUTOMATION: "true"
   # Pass all required Terraform variables from the workflow
   TF_VAR_aws_region:            us-east-1
-  TF_VAR_app_name:              devops-static12345678-app   # mirrors APP_NAME above
+  TF_VAR_app_name:              devops-static123456789-app   # mirrors APP_NAME above
   TF_VAR_subnet_id:             ${{ secrets.AWS_SUBNET_ID }}
   TF_VAR_security_group_id:     ${{ secrets.AWS_SECURITY_GROUP_ID }}
 
