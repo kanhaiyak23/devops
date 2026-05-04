@@ -9,7 +9,7 @@ name: Deploy to AWS ECS
 on:
   push:
     branches:
-      - automat  # Triggers on every push to automat branch
+      - main  # Triggers on every push to automat branch
 
 env:
   AWS_REGION:    us-east-1
