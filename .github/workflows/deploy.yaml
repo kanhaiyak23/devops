@@ -13,14 +13,16 @@ on:
 
 env:
   AWS_REGION:    us-east-1
-  APP_NAME:      devops-static123456789-app   # ← single source of truth for the app name
+  APP_NAME:      devops-static12345678-app   # ← single source of truth for the app name
   TF_VERSION:    1.9.8
   TF_IN_AUTOMATION: "true"
   # Pass all required Terraform variables from the workflow
   TF_VAR_aws_region:            us-east-1
-  TF_VAR_app_name:              devops-static123456789-app   # mirrors APP_NAME above
+  TF_VAR_app_name:              devops-static12345678-app   # mirrors APP_NAME above
   TF_VAR_subnet_id:             ${{ secrets.AWS_SUBNET_ID }}
+  TF_VAR_subnet_id_2:           ${{ secrets.AWS_SUBNET_ID_2 }}
   TF_VAR_security_group_id:     ${{ secrets.AWS_SECURITY_GROUP_ID }}
+  TF_VAR_vpc_id:                ${{ secrets.AWS_VPC_ID }}
 
 jobs:
   deploy:
@@ -48,7 +50,9 @@ jobs:
           test -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" || (echo "❌ Missing: AWS_SECRET_ACCESS_KEY" && exit 1)
           test -n "${{ secrets.AWS_SESSION_TOKEN }}"     || (echo "❌ Missing: AWS_SESSION_TOKEN"     && exit 1)
           test -n "${{ secrets.AWS_SUBNET_ID }}"         || (echo "❌ Missing: AWS_SUBNET_ID"         && exit 1)
+          test -n "${{ secrets.AWS_SUBNET_ID_2 }}"       || (echo "❌ Missing: AWS_SUBNET_ID_2"       && exit 1)
           test -n "${{ secrets.AWS_SECURITY_GROUP_ID }}" || (echo "❌ Missing: AWS_SECURITY_GROUP_ID" && exit 1)
+          test -n "${{ secrets.AWS_VPC_ID }}"            || (echo "❌ Missing: AWS_VPC_ID"            && exit 1)
           echo "✅ All required secrets present"
 
       # ── Step 4: Login to Amazon ECR & capture registry URL ─
@@ -163,7 +167,49 @@ jobs:
             aws_ecs_service.app_service \
             "${{ env.APP_NAME }}-cluster/${{ env.APP_NAME }}-service" || true
 
+          # ── ALB imports (look up ARNs dynamically) ──────────
+          echo "→ Importing ALB security group..."
+          ALB_SG_ID=$(aws ec2 describe-security-groups \
+            --filters "Name=group-name,Values=${{ env.APP_NAME }}-alb-sg" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "SecurityGroups[0].GroupId" \
+            --output text 2>/dev/null || echo "")
+          if [ -n "$ALB_SG_ID" ] && [ "$ALB_SG_ID" != "None" ]; then
+            terraform import -input=false aws_security_group.alb_sg "$ALB_SG_ID" || true
+          fi
+
+          echo "→ Importing ALB..."
+          ALB_ARN=$(aws elbv2 describe-load-balancers \
+            --names "${{ env.APP_NAME }}-alb" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "LoadBalancers[0].LoadBalancerArn" \
+            --output text 2>/dev/null || echo "")
+          if [ -n "$ALB_ARN" ] && [ "$ALB_ARN" != "None" ]; then
+            terraform import -input=false aws_lb.app_alb "$ALB_ARN" || true
+
+            echo "→ Importing ALB listener..."
+            LISTENER_ARN=$(aws elbv2 describe-listeners \
+              --load-balancer-arn "$ALB_ARN" \
+              --region "${{ env.AWS_REGION }}" \
+              --query "Listeners[0].ListenerArn" \
+              --output text 2>/dev/null || echo "")
+            if [ -n "$LISTENER_ARN" ] && [ "$LISTENER_ARN" != "None" ]; then
+              terraform import -input=false aws_lb_listener.app_listener "$LISTENER_ARN" || true
+            fi
+          fi
+
+          echo "→ Importing ALB target group..."
+          TG_ARN=$(aws elbv2 describe-target-groups \
+            --names "${{ env.APP_NAME }}-tg" \
+            --region "${{ env.AWS_REGION }}" \
+            --query "TargetGroups[0].TargetGroupArn" \
+            --output text 2>/dev/null || echo "")
+          if [ -n "$TG_ARN" ] && [ "$TG_ARN" != "None" ]; then
+            terraform import -input=false aws_lb_target_group.app_tg "$TG_ARN" || true
+          fi
+
           echo "✅ Import step complete"
+
 
 
       # ── Step 12: Terraform Validate ───────────────────────
@@ -212,35 +258,17 @@ jobs:
             --output text)
           echo "Running tasks: $RUNNING"
 
-      # ── Step 16: Get Public IP & Print URL ────────────────
-      - name: Get App Public IP
-        id: get-ip
+      # ── Step 16: Get ALB DNS & Print URL ──────────────────
+      - name: Get ALB URL
+        id: get-url
         run: |
-          echo "Fetching public IP of the running ECS task..."
-
-          TASK_ARN=$(aws ecs list-tasks \
-            --cluster "${{ env.APP_NAME }}-cluster" \
+          ALB_DNS=$(aws elbv2 describe-load-balancers \
+            --names "${{ env.APP_NAME }}-alb" \
             --region "${{ env.AWS_REGION }}" \
-            --query "taskArns[0]" \
+            --query "LoadBalancers[0].DNSName" \
             --output text)
-          echo "Task ARN: $TASK_ARN"
-
-          ENI_ID=$(aws ecs describe-tasks \
-            --cluster "${{ env.APP_NAME }}-cluster" \
-            --tasks "$TASK_ARN" \
-            --region "${{ env.AWS_REGION }}" \
-            --query "tasks[0].attachments[0].details[?name=='networkInterfaceId'].value" \
-            --output text)
-          echo "ENI ID: $ENI_ID"
-
-          PUBLIC_IP=$(aws ec2 describe-network-interfaces \
-            --network-interface-ids "$ENI_ID" \
-            --region "${{ env.AWS_REGION }}" \
-            --query "NetworkInterfaces[0].Association.PublicIp" \
-            --output text)
-
-          echo "public_ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
-          echo "✅ Public IP: $PUBLIC_IP"
+          echo "alb_dns=$ALB_DNS" >> $GITHUB_OUTPUT
+          echo "✅ ALB DNS: $ALB_DNS"
 
       # ── Step 17: Deployment Summary ───────────────────────
       - name: Deployment Summary
@@ -255,7 +283,7 @@ jobs:
           echo "============================================"
           echo ""
           echo "🌐 Visit your app at:"
-          echo "   http://${{ steps.get-ip.outputs.public_ip }}:5001"
+          echo "   http://${{ steps.get-url.outputs.alb_dns }}"
           echo ""
-          echo "👉 Or: AWS Console → ECS → Clusters"
-          echo "   → ${{ env.APP_NAME }}-cluster → Tasks → Public IP"
+          echo "👉 Or: AWS Console → EC2 → Load Balancers"
+          echo "   → ${{ env.APP_NAME }}-alb → DNS Name → open in browser"

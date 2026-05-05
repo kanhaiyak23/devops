@@ -59,6 +59,85 @@ resource "aws_s3_bucket_public_access_block" "app_bucket_public_access" {
   restrict_public_buckets = true
 }
 
+# ── ALB Security Group ───────────────────────────────────────────────────────
+resource "aws_security_group" "alb_sg" {
+  name        = "${var.app_name}-alb-sg"
+  description = "Allow HTTP inbound to ALB from internet"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name      = "${var.app_name}-alb-sg"
+    ManagedBy = "terraform"
+  }
+}
+
+# ── Application Load Balancer ─────────────────────────────────────────────────
+resource "aws_lb" "app_alb" {
+  name               = "${var.app_name}-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb_sg.id]
+  subnets            = [var.subnet_id, var.subnet_id_2]
+
+  enable_deletion_protection = false
+
+  tags = {
+    Name      = "${var.app_name}-alb"
+    ManagedBy = "terraform"
+  }
+}
+
+# ── Target Group (type=ip required for Fargate awsvpc mode) ───────────────────
+resource "aws_lb_target_group" "app_tg" {
+  name        = "${var.app_name}-tg"
+  port        = 5001
+  protocol    = "HTTP"
+  vpc_id      = var.vpc_id
+  target_type = "ip"
+
+  health_check {
+    path                = "/api/health"
+    port                = "5001"
+    protocol            = "HTTP"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    timeout             = 10
+    interval            = 30
+    matcher             = "200"
+  }
+
+  tags = {
+    Name      = "${var.app_name}-tg"
+    ManagedBy = "terraform"
+  }
+}
+
+# ── ALB Listener — port 80 → target group ────────────────────────────────────
+resource "aws_lb_listener" "app_listener" {
+  load_balancer_arn = aws_lb.app_alb.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app_tg.arn
+  }
+}
+
 # ── ECS Cluster ──────────────────────────────────────────────────────────────
 resource "aws_ecs_cluster" "app_cluster" {
   name = "${var.app_name}-cluster"
@@ -137,8 +216,21 @@ resource "aws_ecs_service" "app_service" {
     assign_public_ip = true
   }
 
+  # Wire ECS tasks into the ALB target group
+  load_balancer {
+    target_group_arn = aws_lb_target_group.app_tg.arn
+    container_name   = var.app_name
+    container_port   = 5001
+  }
+
+  # Grace period so the container can start before ALB health checks begin
+  health_check_grace_period_seconds = 60
+
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
+
+  # ALB listener must exist before service registers tasks
+  depends_on = [aws_lb_listener.app_listener]
 
   tags = {
     Name      = "${var.app_name}-service"

@@ -21,11 +21,21 @@ variable "image_uri" {
 }
 
 variable "subnet_id" {
-  description = "VPC Subnet ID for ECS task (set via TF_VAR_subnet_id secret)"
+  description = "VPC Subnet ID #1 for ECS task and ALB (set via TF_VAR_subnet_id secret)"
+  type        = string
+}
+
+variable "subnet_id_2" {
+  description = "VPC Subnet ID #2 for ALB — must be in a different AZ (set via TF_VAR_subnet_id_2 secret)"
   type        = string
 }
 
 variable "security_group_id" {
   description = "Security Group ID for ECS task (set via TF_VAR_security_group_id secret)"
+  type        = string
+}
+
+variable "vpc_id" {
+  description = "VPC ID — required for ALB security group and target group (set via TF_VAR_vpc_id secret)"
   type        = string
 }
