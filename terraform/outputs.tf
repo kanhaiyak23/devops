@@ -3,6 +3,16 @@ output "s3_bucket_name" {
   value       = aws_s3_bucket.app_bucket.bucket
 }
 
+output "alb_dns_name" {
+  description = "ALB DNS name — visit http://<this value> in your browser"
+  value       = aws_lb.app_alb.dns_name
+}
+
+output "alb_arn" {
+  description = "ALB ARN — used for import step"
+  value       = aws_lb.app_alb.arn
+}
+
 output "ecr_repository_url" {
   description = "ECR repository URL (computed from registry + app_name)"
   value       = "${var.ecr_registry_url}/${var.app_name}"
