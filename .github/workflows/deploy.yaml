@@ -18,7 +18,7 @@ env:
   TF_IN_AUTOMATION: "true"
   # Pass all required Terraform variables from the workflow
   TF_VAR_aws_region:            us-east-1
-  TF_VAR_app_name:              devops-static12345678-app   # mirrors APP_NAME above
+  TF_VAR_app_name:              ${{ env.APP_NAME }}   # always mirrors APP_NAME above ↑
   # NOTE: vpc_id, subnet_id, security_group_id are auto-fetched by Terraform data sources
 
 
