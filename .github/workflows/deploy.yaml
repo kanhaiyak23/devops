@@ -19,10 +19,8 @@ env:
   # Pass all required Terraform variables from the workflow
   TF_VAR_aws_region:            us-east-1
   TF_VAR_app_name:              devops-static12345678-app   # mirrors APP_NAME above
-  TF_VAR_subnet_id:             ${{ secrets.AWS_SUBNET_ID }}
-  TF_VAR_subnet_id_2:           ${{ secrets.AWS_SUBNET_ID_2 }}
-  TF_VAR_security_group_id:     ${{ secrets.AWS_SECURITY_GROUP_ID }}
-  TF_VAR_vpc_id:                ${{ secrets.AWS_VPC_ID }}
+  # NOTE: vpc_id, subnet_id, security_group_id are auto-fetched by Terraform data sources
+
 
 jobs:
   deploy:
@@ -49,10 +47,6 @@ jobs:
           test -n "${{ secrets.AWS_ACCESS_KEY_ID }}"     || (echo "❌ Missing: AWS_ACCESS_KEY_ID"     && exit 1)
           test -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" || (echo "❌ Missing: AWS_SECRET_ACCESS_KEY" && exit 1)
           test -n "${{ secrets.AWS_SESSION_TOKEN }}"     || (echo "❌ Missing: AWS_SESSION_TOKEN"     && exit 1)
-          test -n "${{ secrets.AWS_SUBNET_ID }}"         || (echo "❌ Missing: AWS_SUBNET_ID"         && exit 1)
-          test -n "${{ secrets.AWS_SUBNET_ID_2 }}"       || (echo "❌ Missing: AWS_SUBNET_ID_2"       && exit 1)
-          test -n "${{ secrets.AWS_SECURITY_GROUP_ID }}" || (echo "❌ Missing: AWS_SECURITY_GROUP_ID" && exit 1)
-          test -n "${{ secrets.AWS_VPC_ID }}"            || (echo "❌ Missing: AWS_VPC_ID"            && exit 1)
           echo "✅ All required secrets present"
 
       # ── Step 4: Login to Amazon ECR & capture registry URL ─

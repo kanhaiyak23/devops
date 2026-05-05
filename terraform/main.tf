@@ -22,6 +22,29 @@ data "aws_iam_role" "lab_role" {
   name = "LabRole"
 }
 
+# ── Auto-fetch default VPC (no manual VPC ID secret needed) ──────────────────
+data "aws_vpc" "default" {
+  default = true
+}
+
+# ── Auto-fetch 2 public subnets in different AZs (ALB requires 2 AZs) ────────
+data "aws_subnets" "public" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+  filter {
+    name   = "map-public-ip-on-launch"
+    values = ["true"]
+  }
+}
+
+# ── Auto-fetch default security group ────────────────────────────────────────
+data "aws_security_group" "default" {
+  name   = "default"
+  vpc_id = data.aws_vpc.default.id
+}
+
 # ── S3 Bucket (required: unique name, versioning, encryption, public-block) ──
 resource "aws_s3_bucket" "app_bucket" {
   bucket        = "${var.app_name}-${data.aws_caller_identity.current.account_id}"
@@ -63,7 +86,7 @@ resource "aws_s3_bucket_public_access_block" "app_bucket_public_access" {
 resource "aws_security_group" "alb_sg" {
   name        = "${var.app_name}-alb-sg"
   description = "Allow HTTP inbound to ALB from internet"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.default.id
 
   ingress {
     from_port   = 80
@@ -91,7 +114,7 @@ resource "aws_lb" "app_alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = [var.subnet_id, var.subnet_id_2]
+  subnets            = data.aws_subnets.public.ids
 
   enable_deletion_protection = false
 
@@ -106,7 +129,7 @@ resource "aws_lb_target_group" "app_tg" {
   name        = "${var.app_name}-tg"
   port        = 5001
   protocol    = "HTTP"
-  vpc_id      = var.vpc_id
+  vpc_id      = data.aws_vpc.default.id
   target_type = "ip"
 
   health_check {
@@ -211,8 +234,8 @@ resource "aws_ecs_service" "app_service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = [var.subnet_id]
-    security_groups  = [var.security_group_id]
+    subnets          = data.aws_subnets.public.ids
+    security_groups  = [data.aws_security_group.default.id]
     assign_public_ip = true
   }
 
