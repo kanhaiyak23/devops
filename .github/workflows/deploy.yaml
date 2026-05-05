@@ -13,7 +13,7 @@ on:
 
 env:
   AWS_REGION:    us-east-1
-  APP_NAME:      devops-static12345678-app   # ← single source of truth for the app name
+  APP_NAME:      devops-static123456789-app   # ← single source of truth for the app name
   TF_VERSION:    1.9.8
   TF_IN_AUTOMATION: "true"
   # Pass all required Terraform variables from the workflow
@@ -279,5 +279,5 @@ jobs:
           echo "🌐 Visit your app at:"
           echo "   http://${{ steps.get-url.outputs.alb_dns }}"
           echo ""
-          echo "👉 Or: AWS Console → EC2 → Load Balancers"
-          echo "   → ${{ env.APP_NAME }}-alb → DNS Name → open in browser"
+          echo "👉 Or: AWS Console → ECS → Clusters"
+          echo "   → ${{ env.APP_NAME }}-cluster → Tasks → Public IP"
